@@ -11,12 +11,17 @@ type Category =
   | 'messages'
   | 'random_notes';
 type CaptureAction = 'add' | 'cross_off';
+type Intent = 'MUTATION' | 'QUERY';
 
 type CaptureResult = {
   action: CaptureAction;
   item_name: string;
   category: Category;
   description?: string;
+};
+
+type IntentResult = {
+  intent: Intent;
 };
 
 const responseSchema = {
@@ -46,7 +51,44 @@ const responseSchema = {
   },
 };
 
+const intentSchema = {
+  type: Type.OBJECT,
+  required: ['intent'],
+  properties: {
+    intent: {
+      type: Type.STRING,
+      enum: ['MUTATION', 'QUERY'],
+    },
+  },
+};
+
 const retryDelays = [500, 1000, 2000];
+
+async function generateWithRetry(
+  ai: GoogleGenAI,
+  contents: string,
+  config?: Parameters<typeof ai.models.generateContent>[0]['config'],
+) {
+  for (let attempt = 0; attempt < retryDelays.length; attempt += 1) {
+    try {
+      return await ai.models.generateContent({
+        model: 'gemini-3.6-flash',
+        contents,
+        config,
+      });
+    } catch (error) {
+      if (attempt === retryDelays.length - 1) {
+        throw error;
+      }
+
+      await new Promise((resolve) =>
+        setTimeout(resolve, retryDelays[attempt]),
+      );
+    }
+  }
+
+  throw new Error('Gemini did not return a response');
+}
 
 export async function POST(request: Request) {
   try {
@@ -60,14 +102,54 @@ export async function POST(request: Request) {
     }
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    let response;
-    for (let attempt = 0; attempt < retryDelays.length; attempt += 1) {
-      try {
-        response = await ai.models.generateContent({
-          model: 'gemini-3.6-flash',
-          contents: `Classify this household input: ${body.rawInput}
+    const intentResponse = await generateWithRetry(
+      ai,
+      `Classify the intent of this household input as exactly one of MUTATION or QUERY.
 
-Return action \`add\` for a new item or task, and \`cross_off\` if the user says they bought, finished, or completed something.
+MUTATION means the user wants to add, remove, buy, finish, or complete an item or task.
+QUERY means the user is asking for information about items currently on the household whiteboard.
+
+Household input:
+${body.rawInput}`,
+      {
+        responseMimeType: 'application/json',
+        responseSchema: intentSchema,
+      },
+    );
+    const intentData = JSON.parse(intentResponse.text ?? '') as IntentResult;
+
+    if (intentData.intent === 'QUERY') {
+      const { data: whiteboardItems, error } = await supabase
+        .from('whiteboard_items')
+        .select('item_name, category, description, is_completed')
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        throw error;
+      }
+
+      const queryResponse = await generateWithRetry(
+        ai,
+        `Answer the household user's question briefly and naturally using only the current whiteboard data below. If the answer is not present, say that you could not find it on the whiteboard.
+
+User question:
+${body.rawInput}
+
+Current whiteboard data:
+${JSON.stringify(whiteboardItems ?? [])}`,
+      );
+
+      return NextResponse.json({
+        type: 'query',
+        answer: queryResponse.text?.trim() ?? '',
+      });
+    }
+
+    const response = await generateWithRetry(
+      ai,
+      `Classify this household input: ${body.rawInput}
+
+Return action \`add\` for a new item or \`cross_off\` if the user says they bought, finished, or completed something.
 
 Choose exactly one category:
 - groceries: food, drinks, and household consumables to buy
@@ -76,26 +158,11 @@ Choose exactly one category:
 - action_items: tasks, errands, and reminders
 - messages: notes intended for another household member
 - random_notes: anything that does not fit the other categories`,
-          config: {
-            responseMimeType: 'application/json',
-            responseSchema,
-          },
-        });
-        break;
-      } catch (error) {
-        if (attempt === retryDelays.length - 1) {
-          throw error;
-        }
-
-        await new Promise((resolve) =>
-          setTimeout(resolve, retryDelays[attempt]),
-        );
-      }
-    }
-
-    if (!response) {
-      throw new Error('Gemini did not return a response');
-    }
+      {
+        responseMimeType: 'application/json',
+        responseSchema,
+      },
+    );
 
     const extractedData = JSON.parse(response.text ?? '') as CaptureResult;
 
@@ -127,7 +194,7 @@ Choose exactly one category:
       throw targetResult.error;
     }
 
-    return NextResponse.json(extractedData);
+    return NextResponse.json({ type: 'mutation', items: [extractedData] });
   } catch (error) {
     console.error('Capture request failed:', error);
     return NextResponse.json(
