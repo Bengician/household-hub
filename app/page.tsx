@@ -30,6 +30,11 @@ type WhiteboardItem = {
   description: string | null;
 };
 
+type MutationResponseItem = {
+  action?: unknown;
+  item_name?: unknown;
+};
+
 type SpeechRecognitionEvent = Event & {
   results: { [index: number]: { [index: number]: { transcript: string } } };
 };
@@ -70,12 +75,21 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCapturing, setIsCapturing] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [processingTranscript, setProcessingTranscript] = useState("");
   const [isFlipped, setIsFlipped] = useState(false);
   const [queryResponse, setQueryResponse] = useState("");
+  const [newItemIds, setNewItemIds] = useState<Set<string>>(() => new Set());
+  const [pendingDeletions, setPendingDeletions] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const deletionTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map(),
+  );
+  const animationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadItems = useCallback(async () => {
+  const loadItems = useCallback(async (newItemNames: string[] = []) => {
     setIsLoading(true);
 
     const { data, error } = await supabase
@@ -87,7 +101,28 @@ export default function Home() {
     if (error) {
       setErrorMessage("The whiteboard could not be loaded.");
     } else {
-      setItems((data ?? []) as WhiteboardItem[]);
+      const loadedItems = (data ?? []) as WhiteboardItem[];
+      setItems(loadedItems);
+
+      if (newItemNames.length > 0) {
+        const addedIds = new Set(
+          loadedItems
+            .filter((item) =>
+              newItemNames.some(
+                (name) => name.toLowerCase() === item.item_name.toLowerCase(),
+              ),
+            )
+            .map((item) => item.id),
+        );
+        setNewItemIds(addedIds);
+        if (animationTimerRef.current) {
+          clearTimeout(animationTimerRef.current);
+        }
+        animationTimerRef.current = setTimeout(() => {
+          setNewItemIds(new Set());
+          animationTimerRef.current = null;
+        }, 700);
+      }
       setErrorMessage(null);
     }
 
@@ -126,13 +161,20 @@ export default function Home() {
       const responseData = (await response.json()) as {
         type?: unknown;
         answer?: unknown;
+        items?: MutationResponseItem[];
       };
 
       if (responseData.type === "query" && typeof responseData.answer === "string") {
         setQueryResponse(responseData.answer);
         setIsFlipped(true);
       } else if (responseData.type === "mutation") {
-        await loadItems();
+        const addedItemNames = (responseData.items ?? [])
+          .filter(
+            (item) =>
+              item.action === "add" && typeof item.item_name === "string",
+          )
+          .map((item) => item.item_name as string);
+        await loadItems(addedItemNames);
       } else {
         throw new Error("Capture response had an invalid type");
       }
@@ -140,6 +182,7 @@ export default function Home() {
       setErrorMessage("The house could not process that note. Try again.");
     } finally {
       setIsCapturing(false);
+      setProcessingTranscript("");
     }
   }, [loadItems]);
 
@@ -170,6 +213,7 @@ export default function Home() {
         return;
       }
 
+      setProcessingTranscript(transcript);
       void captureInput(transcript);
     };
     recognition.onerror = () => {
@@ -193,24 +237,76 @@ export default function Home() {
     }
   }
 
-  async function completeItem(itemId: string) {
+  const deleteItem = useCallback(async (itemId: string) => {
     setErrorMessage(null);
 
     const { error } = await supabase
       .from("whiteboard_items")
-      .update({ is_completed: true })
+      .delete()
       .eq("id", itemId);
 
     if (error) {
       setErrorMessage("That note could not be erased. Try again.");
+      setPendingDeletions((pending) => {
+        const nextPending = new Set(pending);
+        nextPending.delete(itemId);
+        return nextPending;
+      });
       return;
     }
 
+    deletionTimersRef.current.delete(itemId);
+    setPendingDeletions((pending) => {
+      const nextPending = new Set(pending);
+      nextPending.delete(itemId);
+      return nextPending;
+    });
     await loadItems();
+  }, [loadItems]);
+
+  function queueItemDeletion(itemId: string) {
+    if (pendingDeletions.has(itemId)) {
+      return;
+    }
+
+    setPendingDeletions((pending) => new Set(pending).add(itemId));
+    const timer = setTimeout(() => {
+      void deleteItem(itemId);
+    }, 4000);
+    deletionTimersRef.current.set(itemId, timer);
+  }
+
+  function undoLatestDeletion() {
+    const pendingItems = Array.from(pendingDeletions);
+    const itemId = pendingItems[pendingItems.length - 1];
+
+    if (!itemId) {
+      return;
+    }
+
+    const timer = deletionTimersRef.current.get(itemId);
+    if (timer) {
+      clearTimeout(timer);
+      deletionTimersRef.current.delete(itemId);
+    }
+
+    setPendingDeletions((pending) => {
+      const nextPending = new Set(pending);
+      nextPending.delete(itemId);
+      return nextPending;
+    });
   }
 
   useEffect(() => {
-    return () => recognitionRef.current?.stop();
+    const deletionTimers = deletionTimersRef.current;
+
+    return () => {
+      recognitionRef.current?.stop();
+      deletionTimers.forEach((timer) => clearTimeout(timer));
+      if (animationTimerRef.current) {
+        clearTimeout(animationTimerRef.current);
+      }
+    };
   }, []);
 
   return (
@@ -250,6 +346,15 @@ export default function Home() {
                   </div>
                 </header>
 
+                {processingTranscript && isCapturing && (
+                  <div className="mb-3 flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-center shadow-sm">
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" aria-hidden="true" />
+                    <span className={`${caveat.className} truncate text-xl text-slate-600`}>
+                      {processingTranscript}
+                    </span>
+                  </div>
+                )}
+
                 {isLoading ? (
                   <BoardPlaceholder />
                 ) : (
@@ -260,7 +365,9 @@ export default function Home() {
                         zone={zone}
                         items={items.filter((item) => item.category === zone.category)}
                         headingClassName={caveat.className}
-                        onComplete={completeItem}
+                        onComplete={queueItemDeletion}
+                        pendingDeletions={pendingDeletions}
+                        newItemIds={newItemIds}
                       />
                     ))}
                   </div>
@@ -297,6 +404,18 @@ export default function Home() {
           </p>
         )}
       </div>
+      {pendingDeletions.size > 0 && (
+        <div className="fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-5 rounded-full bg-slate-900 px-5 py-3 text-sm text-white shadow-xl">
+          <span>Note crossed out</span>
+          <button
+            type="button"
+            onClick={undoLatestDeletion}
+            className="font-bold text-amber-300 transition hover:text-amber-200"
+          >
+            Undo
+          </button>
+        </div>
+      )}
     </main>
   );
 }
@@ -306,11 +425,15 @@ function WhiteboardZone({
   items,
   headingClassName,
   onComplete,
+  pendingDeletions,
+  newItemIds,
 }: {
   zone: (typeof zones)[number];
   items: WhiteboardItem[];
   headingClassName: string;
   onComplete: (itemId: string) => void;
+  pendingDeletions: Set<string>;
+  newItemIds: Set<string>;
 }) {
   return (
     <section className={`flex min-h-0 flex-col rounded-xl border border-slate-200/80 ${zone.tint} p-3`}>
@@ -323,8 +446,9 @@ function WhiteboardZone({
         <ul className="space-y-2 overflow-auto pr-1">
           {items.map(({ id, item_name, description }) => (
             <li
-              className={`${headingClassName} cursor-pointer text-[1.35rem] leading-tight text-slate-700 transition hover:opacity-50 hover:line-through`}
+              className={`${headingClassName} cursor-pointer text-[1.35rem] leading-tight text-slate-700 transition hover:opacity-50 hover:line-through ${pendingDeletions.has(id) ? "line-through opacity-50" : ""}`}
               key={id}
+              style={newItemIds.has(id) ? { animation: "handwriting 600ms ease-out both" } : undefined}
               onClick={() => void onComplete(id)}
               role="button"
               tabIndex={0}
