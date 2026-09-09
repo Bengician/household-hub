@@ -2,7 +2,6 @@
 
 import { Caveat } from "next/font/google";
 import {
-  FormEvent,
   useCallback,
   useEffect,
   useRef,
@@ -67,7 +66,6 @@ const zones: { category: Category; label: string; tint: string }[] = [
 ];
 
 export default function Home() {
-  const [rawInput, setRawInput] = useState("");
   const [items, setItems] = useState<WhiteboardItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCapturing, setIsCapturing] = useState(false);
@@ -130,7 +128,6 @@ export default function Home() {
         answer?: unknown;
       };
 
-      setRawInput("");
       if (responseData.type === "query" && typeof responseData.answer === "string") {
         setQueryResponse(responseData.answer);
         setIsFlipped(true);
@@ -145,11 +142,6 @@ export default function Home() {
       setIsCapturing(false);
     }
   }, [loadItems]);
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    await captureInput(rawInput);
-  }
 
   function toggleVoiceInput() {
     if (isListening) {
@@ -178,7 +170,6 @@ export default function Home() {
         return;
       }
 
-      setRawInput(transcript);
       void captureInput(transcript);
     };
     recognition.onerror = () => {
@@ -224,51 +215,61 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#d9d4cb] px-4 py-6 text-slate-800 sm:px-6 sm:py-8">
-      <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-md flex-col gap-5">
-        <div className="relative min-h-[680px] flex-1 [perspective:1000px]">
+      <div className="mx-auto flex h-[calc(100vh-3rem)] min-h-0 w-full max-w-md flex-col gap-5 sm:h-[calc(100vh-4rem)]">
+        <div className="relative min-h-0 flex-1 [perspective:1000px]">
           <div
-            className={`relative h-full min-h-[680px] transition-transform duration-700 [transform-style:preserve-3d] ${isFlipped ? "rotate-y-180" : ""}`}
+            className={`relative h-full min-h-0 transition-transform duration-700 [transform-style:preserve-3d] ${isFlipped ? "rotate-y-180" : ""}`}
           >
             <section
               className="absolute inset-0 overflow-hidden rounded-[2rem] border-[10px] border-[#b7b2a9] bg-slate-50 p-4 shadow-[0_22px_45px_rgba(55,50,42,0.3),inset_0_0_0_2px_rgba(255,255,255,0.9),inset_0_0_24px_rgba(148,163,184,0.16)] [backface-visibility:hidden] sm:p-5"
               aria-label="Household whiteboard"
             >
               <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.7),transparent_22%,transparent_78%,rgba(148,163,184,0.08))]" />
-              <div className="relative flex h-full min-h-[680px] flex-col">
-            <header className="mb-4 flex items-end justify-between border-b-2 border-slate-200/80 pb-3">
-              <div>
-                <p className="font-sans text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">
-                  The household board
-                </p>
-                <h1 className={`${caveat.className} text-4xl font-bold leading-none text-slate-700`}>
-                  Keep in sight
-                </h1>
-              </div>
-              <span className={`${caveat.className} -rotate-3 text-2xl text-slate-400`}>
-                {items.length} notes
-              </span>
-            </header>
+              <div className="relative flex h-full min-h-0 flex-col">
+                <header className="mb-4 flex items-center justify-between gap-3 border-b-2 border-slate-200/80 pb-3">
+                  <h1 className={`${caveat.className} text-3xl font-bold leading-none text-slate-700 sm:text-4xl`}>
+                    Ben and Em&apos;s Family Whiteboard
+                  </h1>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <span className={`${caveat.className} -rotate-3 text-2xl text-slate-400`}>
+                      {items.length} notes
+                    </span>
+                    <button
+                      type="button"
+                      onClick={toggleVoiceInput}
+                      disabled={isCapturing}
+                      aria-label={isListening ? "Stop voice input" : "Start voice input"}
+                      className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold tracking-tight shadow-[inset_0_2px_2px_rgba(255,255,255,0.7),0_4px_8px_rgba(71,85,105,0.28)] transition hover:-translate-y-0.5 hover:shadow-[inset_0_2px_2px_rgba(255,255,255,0.7),0_6px_12px_rgba(71,85,105,0.34)] disabled:cursor-not-allowed disabled:opacity-60 ${
+                        isListening
+                          ? "animate-pulse border-rose-600 bg-rose-500 text-white"
+                          : "border-slate-300 bg-amber-200 text-slate-700 hover:bg-amber-300"
+                      }`}
+                    >
+                      MIC
+                    </button>
+                  </div>
+                </header>
 
-            {isLoading ? (
-              <BoardPlaceholder />
-            ) : (
-              <div className="grid flex-1 grid-cols-2 grid-rows-3 gap-3">
-                {zones.map((zone) => (
-                  <WhiteboardZone
-                    key={zone.category}
-                    zone={zone}
-                    items={items.filter((item) => item.category === zone.category)}
-                    headingClassName={caveat.className}
-                    onComplete={completeItem}
-                  />
-                ))}
-              </div>
-            )}
+                {isLoading ? (
+                  <BoardPlaceholder />
+                ) : (
+                  <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-3 gap-3">
+                    {zones.map((zone) => (
+                      <WhiteboardZone
+                        key={zone.category}
+                        zone={zone}
+                        items={items.filter((item) => item.category === zone.category)}
+                        headingClassName={caveat.className}
+                        onComplete={completeItem}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </section>
 
             <section
-              className="absolute inset-0 flex min-h-[680px] flex-col overflow-hidden rounded-[2rem] border-[10px] border-[#777a78] bg-[#8b8e8b] p-6 text-slate-100 shadow-[inset_0_0_0_2px_rgba(255,255,255,0.18),inset_0_0_28px_rgba(31,41,55,0.22),0_22px_45px_rgba(55,50,42,0.3)] [backface-visibility:hidden] rotate-y-180"
+              className="absolute inset-0 flex min-h-0 flex-col overflow-hidden rounded-[2rem] border-[10px] border-[#777a78] bg-[#8b8e8b] p-6 text-slate-100 shadow-[inset_0_0_0_2px_rgba(255,255,255,0.18),inset_0_0_28px_rgba(31,41,55,0.22),0_22px_45px_rgba(55,50,42,0.3)] [backface-visibility:hidden] rotate-y-180"
               aria-label="Whiteboard response"
             >
               <div className="pointer-events-none absolute inset-0 opacity-30 [background-image:radial-gradient(rgba(255,255,255,0.22)_0.7px,transparent_0.7px)] [background-size:5px_5px]" />
@@ -290,54 +291,11 @@ export default function Home() {
             </section>
           </div>
         </div>
-
-        <section className="rounded-2xl border border-slate-700/20 bg-slate-900 p-4 shadow-[0_14px_30px_rgba(15,23,42,0.24)] sm:p-5">
-          <form onSubmit={handleSubmit}>
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <label className="font-sans text-xs font-semibold uppercase tracking-[0.2em] text-slate-300" htmlFor="household-input">
-                Tell the house
-              </label>
-              <span className="text-xs text-slate-500">Natural language</span>
-            </div>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="relative min-w-0 flex-1">
-                <input
-                  id="household-input"
-                  value={rawInput}
-                  onChange={(event) => setRawInput(event.target.value)}
-                  placeholder="Add a note, task, or reminder..."
-                  className="min-h-12 w-full rounded-xl border border-slate-700 bg-slate-800 px-4 pr-14 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-amber-300 focus:ring-2 focus:ring-amber-300/20"
-                  disabled={isCapturing}
-                />
-                <button
-                  type="button"
-                  onClick={toggleVoiceInput}
-                  aria-label={isListening ? "Stop voice input" : "Start voice input"}
-                  className={`absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-lg transition ${
-                    isListening
-                      ? "animate-pulse bg-rose-500 text-white"
-                      : "text-slate-400 hover:bg-slate-700 hover:text-amber-300"
-                  }`}
-                >
-                  <span aria-hidden="true" className="text-[10px] font-bold tracking-tight">
-                    MIC
-                  </span>
-                </button>
-              </div>
-              <button
-                type="submit"
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-amber-300 px-5 font-semibold text-slate-900 transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={isCapturing}
-              >
-                {isCapturing && (
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-900/30 border-t-slate-900" aria-hidden="true" />
-                )}
-                {isCapturing ? "Writing" : "Send to House"}
-              </button>
-            </div>
-            {errorMessage && <p className="mt-3 text-sm text-rose-300" role="alert">{errorMessage}</p>}
-          </form>
-        </section>
+        {errorMessage && (
+          <p className="text-center text-sm text-rose-700" role="alert">
+            {errorMessage}
+          </p>
+        )}
       </div>
     </main>
   );
@@ -389,7 +347,7 @@ function WhiteboardZone({
 
 function BoardPlaceholder() {
   return (
-    <div className="grid flex-1 grid-cols-2 grid-rows-3 gap-3" aria-label="Loading whiteboard">
+    <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-3 gap-3" aria-label="Loading whiteboard">
       {zones.map((zone) => <div className={`animate-pulse rounded-xl ${zone.tint}`} key={zone.category} />)}
     </div>
   );
