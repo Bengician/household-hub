@@ -20,34 +20,46 @@ type CaptureResult = {
   description?: string;
 };
 
+type MutationResult = {
+  items: CaptureResult[];
+};
+
 type IntentResult = {
   intent: Intent;
 };
 
 const responseSchema = {
   type: Type.OBJECT,
-  maxProperties: 4,
-  required: ['action', 'item_name', 'category'],
+  required: ['items'],
   properties: {
-    action: {
-      type: Type.STRING,
-      enum: ['add', 'cross_off'],
+    items: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        required: ['action', 'item_name', 'category'],
+        properties: {
+          action: {
+            type: Type.STRING,
+            enum: ['add', 'cross_off'],
+          },
+          item_name: {
+            type: Type.STRING,
+          },
+          category: {
+            type: Type.STRING,
+            enum: [
+              'groceries',
+              'hardware_home',
+              'storage_log',
+              'action_items',
+              'messages',
+              'random_notes',
+            ],
+          },
+          description: { type: Type.STRING },
+        },
+      },
     },
-    item_name: {
-      type: Type.STRING,
-    },
-    category: {
-      type: Type.STRING,
-      enum: [
-        'groceries',
-        'hardware_home',
-        'storage_log',
-        'action_items',
-        'messages',
-        'random_notes',
-      ],
-    },
-    description: { type: Type.STRING },
   },
 };
 
@@ -157,44 +169,53 @@ Choose exactly one category:
 - storage_log: items put away, stored, or worth remembering where they are
 - action_items: tasks, errands, and reminders
 - messages: notes intended for another household member
-- random_notes: anything that does not fit the other categories`,
+- random_notes: anything that does not fit the other categories
+
+If the user lists multiple distinct physical items or separate tasks (e.g., in a grocery list), break them apart and return each item as a completely separate object in the \`items\` array. However, do not split up single, unified thoughts or messages that just happen to contain the word 'and' (e.g., keep "Beth and Sue called" as a single item).`,
       {
         responseMimeType: 'application/json',
         responseSchema,
       },
     );
 
-    const extractedData = JSON.parse(response.text ?? '') as CaptureResult;
+    const extractedData = JSON.parse(response.text ?? '') as MutationResult;
 
-    const { error: activityError } = await supabase
-      .from('household_activity')
-      .insert({
-        raw_input: body.rawInput,
-        action: extractedData.action,
-        category: extractedData.category,
-      });
+    const activityResults = await Promise.all(
+      extractedData.items.map((item) =>
+        supabase.from('household_activity').insert({
+          raw_input: body.rawInput,
+          action: item.action,
+          category: item.category,
+        }),
+      ),
+    );
 
+    const activityError = activityResults.find((result) => result.error)?.error;
     if (activityError) {
       throw activityError;
     }
 
-    const targetResult =
-      extractedData.action === 'add'
-        ? await supabase.from('whiteboard_items').insert({
-            item_name: extractedData.item_name,
-            category: extractedData.category,
-            description: extractedData.description,
-          })
-        : await supabase
-            .from('whiteboard_items')
-            .update({ is_completed: true })
-            .ilike('item_name', `%${extractedData.item_name}%`);
+    const targetResults = await Promise.all(
+      extractedData.items.map((item) =>
+        item.action === 'add'
+          ? supabase.from('whiteboard_items').insert({
+              item_name: item.item_name,
+              category: item.category,
+              description: item.description,
+            })
+          : supabase
+              .from('whiteboard_items')
+              .update({ is_completed: true })
+              .ilike('item_name', `%${item.item_name}%`),
+      ),
+    );
 
-    if (targetResult.error) {
-      throw targetResult.error;
+    const targetError = targetResults.find((result) => result.error)?.error;
+    if (targetError) {
+      throw targetError;
     }
 
-    return NextResponse.json({ type: 'mutation', items: [extractedData] });
+    return NextResponse.json({ type: 'mutation', items: extractedData.items });
   } catch (error) {
     console.error('Capture request failed:', error);
     return NextResponse.json(
