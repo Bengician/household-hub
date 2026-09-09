@@ -330,19 +330,33 @@ export default function Home() {
                     <span className={`${caveat.className} -rotate-3 text-2xl text-slate-400`}>
                       {items.length} notes
                     </span>
-                    <button
-                      type="button"
-                      onClick={toggleVoiceInput}
-                      disabled={isCapturing}
-                      aria-label={isListening ? "Stop voice input" : "Start voice input"}
-                      className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold tracking-tight shadow-[inset_0_2px_2px_rgba(255,255,255,0.7),0_4px_8px_rgba(71,85,105,0.28)] transition hover:-translate-y-0.5 hover:shadow-[inset_0_2px_2px_rgba(255,255,255,0.7),0_6px_12px_rgba(71,85,105,0.34)] disabled:cursor-not-allowed disabled:opacity-60 ${
+                    <div
+                      className={`relative shrink-0 rounded-full p-2 transition ${
                         isListening
-                          ? "animate-pulse border-rose-600 bg-rose-500 text-white"
-                          : "border-slate-300 bg-amber-200 text-slate-700 hover:bg-amber-300"
-                      }`}
+                          ? "shadow-[0_0_24px_10px_rgba(251,191,36,0.42)]"
+                          : "shadow-none"
+                      } ${isCapturing ? "pointer-events-none opacity-60" : "cursor-pointer"}`}
+                      role="button"
+                      tabIndex={isCapturing ? -1 : 0}
+                      aria-label={isListening ? "Stop voice input" : "Start voice input"}
+                      aria-disabled={isCapturing}
+                      onClick={toggleVoiceInput}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          toggleVoiceInput();
+                        }
+                      }}
                     >
-                      MIC
-                    </button>
+                      <div className="absolute -bottom-1 left-1/2 h-3 w-16 -translate-x-1/2 rounded-b-full bg-slate-500/50 shadow-[0_2px_4px_rgba(51,65,85,0.25)]" />
+                      <div className="relative flex h-10 w-20 items-center rounded-full border border-slate-300 bg-white shadow-[inset_0_2px_3px_rgba(255,255,255,0.9),inset_0_-2px_3px_rgba(148,163,184,0.28),0_4px_6px_rgba(71,85,105,0.3)]">
+                        <span className="h-10 w-7 rounded-l-full bg-slate-800 shadow-[inset_-2px_0_3px_rgba(255,255,255,0.12)]" />
+                        <span className={`${caveat.className} flex-1 text-center text-base font-bold text-slate-500`}>
+                          MIC
+                        </span>
+                        <span className="mr-2 h-2 w-2 rounded-full bg-amber-300 shadow-[0_0_4px_rgba(251,191,36,0.7)]" />
+                      </div>
+                    </div>
                   </div>
                 </header>
 
