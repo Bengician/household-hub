@@ -324,18 +324,15 @@ export default function Home() {
               <div className="relative flex h-full min-h-0 flex-col">
                 <header className="mb-4 flex items-center justify-between gap-3 border-b-2 border-slate-200/80 pb-3">
                   <h1 className={`${caveat.className} text-3xl font-bold leading-none text-slate-700 sm:text-4xl`}>
-                    Ben and Em&apos;s Family Whiteboard
+                    Ben and Em&apos;s Whiteboard
                   </h1>
                   <div className="flex shrink-0 items-center gap-3">
-                    <span className={`${caveat.className} -rotate-3 text-2xl text-slate-400`}>
-                      {items.length} notes
-                    </span>
                     <div
-                      className={`relative shrink-0 rounded-full p-2 transition ${
-                        isListening
-                          ? "shadow-[0_0_24px_10px_rgba(251,191,36,0.42)]"
-                          : "shadow-none"
-                      } ${isCapturing ? "pointer-events-none opacity-60" : "cursor-pointer"}`}
+                      className={`relative flex items-center shrink-0 group w-40 h-10 transition-all ${
+                        isCapturing
+                          ? "pointer-events-none opacity-60"
+                          : "cursor-pointer hover:scale-105"
+                      }`}
                       role="button"
                       tabIndex={isCapturing ? -1 : 0}
                       aria-label={isListening ? "Stop voice input" : "Start voice input"}
@@ -348,18 +345,73 @@ export default function Home() {
                         }
                       }}
                     >
-                      <div className="absolute -bottom-1 left-1/2 h-3 w-16 -translate-x-1/2 rounded-b-full bg-slate-500/50 shadow-[0_2px_4px_rgba(51,65,85,0.25)]" />
-                      <div className="relative flex h-10 w-20 items-center rounded-full border border-slate-300 bg-white shadow-[inset_0_2px_3px_rgba(255,255,255,0.9),inset_0_-2px_3px_rgba(148,163,184,0.28),0_4px_6px_rgba(71,85,105,0.3)]">
-                        <span className="h-10 w-7 rounded-l-full bg-slate-800 shadow-[inset_-2px_0_3px_rgba(255,255,255,0.12)]" />
-                        <span className={`${caveat.className} flex-1 text-center text-base font-bold text-slate-500`}>
-                          MIC
-                        </span>
-                        <span className="mr-2 h-2 w-2 rounded-full bg-amber-300 shadow-[0_0_4px_rgba(251,191,36,0.7)]" />
+                      {/* Glow */}
+                      <div
+                        className={`absolute inset-0 rounded-full transition-all duration-300 ${
+                          isListening
+                            ? "bg-amber-300 opacity-100 blur-xl scale-125 animate-pulse"
+                            : "bg-white opacity-0 group-hover:opacity-40 blur-lg"
+                        }`}
+                      />
+
+                      <div className="relative flex items-center w-full h-8 mt-1.5">
+
+                        {/* Static marker body — shadow belongs ONLY here */}
+                        <div className="relative flex items-center flex-1 h-8 drop-shadow-md">
+
+                          {/* Revealed tip */}
+                          <div className="flex items-center justify-end w-11 h-8">
+                            <div className="w-3 h-3 bg-blue-800 rounded-l-sm" />
+                            <div className="w-3 h-6 bg-slate-300 border-y border-slate-300" />
+                          </div>
+
+                          {/* Barrel */}
+                          <div className="relative z-10 flex items-center justify-center flex-1 h-8 bg-slate-50 border-y border-slate-300">
+                            {/* Accent stripe */}
+                            <div className="absolute left-1 w-1.5 h-full bg-blue-700" />
+
+                            {/* Microphone */}
+                            <svg
+                              className="w-3.5 h-3.5 text-slate-400 ml-2"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              viewBox="0 0 24 24"
+                              aria-hidden="true"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"
+                              />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M19 10v1a7 7 0 01-14 0v-1M12 18.5V23M8 23h8"
+                              />
+                            </svg>
+                          </div>
+
+                          {/* End plug */}
+                          <div className="w-3 h-6 bg-blue-700 rounded-r-md" />
+                        </div>
+
+                        {/* Cap — completely independent from the shadow */}
+                        <div
+                          className={`absolute left-0 z-30 origin-bottom-left transition-all duration-300 ease-out ${
+                            isListening
+                              ? "-translate-x-6 -translate-y-4 -rotate-45 opacity-0"
+                              : "translate-x-0 translate-y-0 rotate-0 opacity-100"
+                          }`}
+                        >
+                          <div className="w-11 h-8 bg-blue-700 rounded-l-md border-r border-slate-300" />
+                        </div>
+
                       </div>
                     </div>
                   </div>
                 </header>
-
+              
                 {processingTranscript && isCapturing && (
                   <div className="mb-3 flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-center shadow-sm">
                     <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" aria-hidden="true" />
