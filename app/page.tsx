@@ -548,7 +548,9 @@ function WhiteboardZone({
 function BoardPlaceholder() {
   return (
     <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-3" aria-label="Loading whiteboard">
-      {zones.main?.map ? null : zones.map((zone) => <div className={`animate-pulse rounded-xl ${zone.tint}`} key={zone.category} />)}
+      {zones.map((zone) => (
+        <div className={`animate-pulse rounded-xl ${zone.tint}`} key={zone.category} />
+      ))}
     </div>
   );
 }
