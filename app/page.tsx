@@ -19,9 +19,7 @@ type Category =
   | "groceries"
   | "hardware_home"
   | "storage_log"
-  | "action_items"
-  | "messages"
-  | "random_notes";
+  | "action_items";
 
 type WhiteboardItem = {
   id: string;
@@ -66,8 +64,6 @@ const zones: { category: Category; label: string; tint: string }[] = [
   },
   { category: "storage_log", label: "Storage Log", tint: "bg-emerald-50/80" },
   { category: "action_items", label: "Action Items", tint: "bg-rose-50/80" },
-  { category: "messages", label: "Messages", tint: "bg-violet-50/80" },
-  { category: "random_notes", label: "Random Notes", tint: "bg-orange-50/80" },
 ];
 
 export default function Home() {
@@ -424,7 +420,7 @@ export default function Home() {
                 {isLoading ? (
                   <BoardPlaceholder />
                 ) : (
-                  <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-3 gap-3">
+                  <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-3">
                     {zones.map((zone) => (
                       <WhiteboardZone
                         key={zone.category}
@@ -502,7 +498,7 @@ function WhiteboardZone({
   newItemIds: Set<string>;
 }) {
   return (
-    <section className={`flex min-h-0 flex-col rounded-xl border border-slate-200/80 ${zone.tint} p-3`}>
+    <section className={`flex min-h-[12rem] flex-col rounded-xl border border-slate-200/80 ${zone.tint} p-3`}>
       <h2 className={`${headingClassName} mb-2 border-b border-slate-300/60 pb-1 text-[1.65rem] font-bold leading-none text-slate-600`}>
         {zone.label}
       </h2>
@@ -537,7 +533,7 @@ function WhiteboardZone({
 
 function BoardPlaceholder() {
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-3 gap-3" aria-label="Loading whiteboard">
+    <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-3" aria-label="Loading whiteboard">
       {zones.map((zone) => <div className={`animate-pulse rounded-xl ${zone.tint}`} key={zone.category} />)}
     </div>
   );

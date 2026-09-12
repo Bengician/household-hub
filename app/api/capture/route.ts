@@ -7,9 +7,7 @@ type Category =
   | 'groceries'
   | 'hardware_home'
   | 'storage_log'
-  | 'action_items'
-  | 'messages'
-  | 'random_notes';
+  | 'action_items';
 type CaptureAction = 'add' | 'cross_off';
 type Intent = 'MUTATION' | 'QUERY';
 
@@ -52,8 +50,6 @@ const responseSchema = {
               'hardware_home',
               'storage_log',
               'action_items',
-              'messages',
-              'random_notes',
             ],
           },
           description: { type: Type.STRING },
@@ -168,8 +164,6 @@ Choose exactly one category:
 - hardware_home: tools, repairs, maintenance, and home improvement
 - storage_log: items put away, stored, or worth remembering where they are
 - action_items: tasks, errands, and reminders
-- messages: notes intended for another household member
-- random_notes: anything that does not fit the other categories
 
 If the user lists multiple distinct physical items or separate tasks (e.g., in a grocery list), break them apart and return each item as a completely separate object in the \`items\` array. However, do not split up single, unified thoughts or messages that just happen to contain the word 'and' (e.g., keep "Beth and Sue called" as a single item).`,
       {
