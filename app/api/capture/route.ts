@@ -1,29 +1,19 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { NextResponse } from 'next/server';
-
 import { supabase } from '../../../lib/supabase';
 
-type Category =
-  | 'groceries'
-  | 'hardware_home'
-  | 'storage_log'
-  | 'action_items';
-type CaptureAction = 'add' | 'cross_off';
-type Intent = 'MUTATION' | 'QUERY';
+type Category = 'groceries' | 'hardware_home' | 'storage_log' | 'action_items';
+type CaptureAction = 'add' | 'remove' | 'extract';
 
 type CaptureResult = {
   action: CaptureAction;
   item_name: string;
   category: Category;
-  description?: string;
+  location?: string;
 };
 
 type MutationResult = {
   items: CaptureResult[];
-};
-
-type IntentResult = {
-  intent: Intent;
 };
 
 const responseSchema = {
@@ -38,7 +28,7 @@ const responseSchema = {
         properties: {
           action: {
             type: Type.STRING,
-            enum: ['add', 'cross_off'],
+            enum: ['add', 'remove', 'extract'],
           },
           item_name: {
             type: Type.STRING,
@@ -52,23 +42,51 @@ const responseSchema = {
               'action_items',
             ],
           },
-          description: { type: Type.STRING },
+          location: {
+            type: Type.STRING,
+            description: "Only used for the storage_log category when adding an item.",
+          },
         },
       },
     },
   },
 };
 
-const intentSchema = {
-  type: Type.OBJECT,
-  required: ['intent'],
-  properties: {
-    intent: {
-      type: Type.STRING,
-      enum: ['MUTATION', 'QUERY'],
-    },
-  },
-};
+const systemInstruction = `You are the intent parsing engine for a household whiteboard app. 
+Parse voice transcripts into a strict JSON object containing an 'items' array.
+
+ACTIONS:
+- add: The user wants to add a new item to the board, store an item, or create a new task.
+- remove: The user bought an item, finished a task, or wants an item crossed off.
+- extract: The user is asking a question, wants to see a list, or is looking for an item.
+
+CATEGORIES:
+- groceries: Food and consumables to buy.
+- hardware_home: Hardware, garden, or home supplies to buy.
+- storage_log: Where physical household items have been placed or stored.
+- action_items: Tasks, chores, or services to hire around the house.
+
+FEW-SHOT EXAMPLES:
+Input: "We need to buy tomatoes"
+Output: {"items": [{"action": "add", "category": "groceries", "item_name": "tomatoes"}]}
+
+Input: "Cross off the milk"
+Output: {"items": [{"action": "remove", "category": "groceries", "item_name": "milk"}]}
+
+Input: "Make a grocery list"
+Output: {"items": [{"action": "extract", "category": "groceries", "item_name": "all"}]}
+
+Input: "I put the spare keys in the garage"
+Output: {"items": [{"action": "add", "category": "storage_log", "item_name": "spare keys", "location": "garage"}]}
+
+Input: "Where are the keys?"
+Output: {"items": [{"action": "extract", "category": "storage_log", "item_name": "keys"}]}
+
+Input: "We need to fix the roof"
+Output: {"items": [{"action": "add", "category": "action_items", "item_name": "fix the roof"}]}
+
+Input: "What do we need to do around the house?"
+Output: {"items": [{"action": "extract", "category": "action_items", "item_name": "all"}]}`;
 
 const retryDelays = [500, 1000, 2000];
 
@@ -80,7 +98,7 @@ async function generateWithRetry(
   for (let attempt = 0; attempt < retryDelays.length; attempt += 1) {
     try {
       return await ai.models.generateContent({
-        model: 'gemini-3.5-flash-lite',
+        model: 'gemini-3.5-flash', // Upgraded to 3.5-flash for perfect intent accuracy
         contents,
         config,
       });
@@ -88,13 +106,11 @@ async function generateWithRetry(
       if (attempt === retryDelays.length - 1) {
         throw error;
       }
-
       await new Promise((resolve) =>
         setTimeout(resolve, retryDelays[attempt]),
       );
     }
   }
-
   throw new Error('Gemini did not return a response');
 }
 
@@ -110,70 +126,22 @@ export async function POST(request: Request) {
     }
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const intentResponse = await generateWithRetry(
-      ai,
-      `Classify the intent of this household input as exactly one of MUTATION or QUERY.
 
-MUTATION means the user wants to add, remove, buy, finish, or complete an item or task.
-QUERY means the user is asking for information about items currently on the household whiteboard.
-
-Household input:
-${body.rawInput}`,
-      {
-        responseMimeType: 'application/json',
-        responseSchema: intentSchema,
-      },
-    );
-    const intentData = JSON.parse(intentResponse.text ?? '') as IntentResult;
-
-    if (intentData.intent === 'QUERY') {
-      const { data: whiteboardItems, error } = await supabase
-        .from('whiteboard_items')
-        .select('item_name, category, description, is_completed')
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        throw error;
-      }
-
-      const queryResponse = await generateWithRetry(
-        ai,
-        `Answer the household user's question briefly and naturally using only the current whiteboard data below. If the answer is not present, say that you could not find it on the whiteboard.
-
-User question:
-${body.rawInput}
-
-Current whiteboard data:
-${JSON.stringify(whiteboardItems ?? [])}`,
-      );
-
-      return NextResponse.json({
-        type: 'query',
-        answer: queryResponse.text?.trim() ?? '',
-      });
-    }
-
+    // Step 1: Single LLM call to parse intents using the new system instructions
     const response = await generateWithRetry(
       ai,
-      `Classify this household input: ${body.rawInput}
-
-Return action \`add\` for a new item or \`cross_off\` if the user says they bought, finished, or completed something.
-
-Choose exactly one category:
-- groceries: food, drinks, and household consumables to buy
-- hardware_home: tools, repairs, maintenance, and home improvement
-- storage_log: items put away, stored, or worth remembering where they are
-- action_items: tasks, errands, and reminders
-
-If the user lists multiple distinct physical items or separate tasks (e.g., in a grocery list), break them apart and return each item as a completely separate object in the \`items\` array. However, do not split up single, unified thoughts or messages that just happen to contain the word 'and' (e.g., keep "Beth and Sue called" as a single item).`,
+      body.rawInput,
       {
+        systemInstruction,
         responseMimeType: 'application/json',
         responseSchema,
+        temperature: 0.1, // Keeps the model strictly focused on categorization
       },
     );
 
     const extractedData = JSON.parse(response.text ?? '') as MutationResult;
 
+    // Save to activity log
     const activityResults = await Promise.all(
       extractedData.items.map((item) =>
         supabase.from('household_activity').insert({
@@ -189,27 +157,82 @@ If the user lists multiple distinct physical items or separate tasks (e.g., in a
       throw activityError;
     }
 
-    const targetResults = await Promise.all(
-      extractedData.items.map((item) =>
-        item.action === 'add'
-          ? supabase.from('whiteboard_items').insert({
-              item_name: item.item_name,
-              category: item.category,
-              description: item.description,
-            })
-          : supabase
-              .from('whiteboard_items')
-              .update({ is_completed: true })
-              .ilike('item_name', `%${item.item_name}%`),
-      ),
-    );
+    // Step 2: Route the actions
+    const extractItems = extractedData.items.filter((i) => i.action === 'extract');
+    const mutationItems = extractedData.items.filter((i) => i.action !== 'extract');
 
-    const targetError = targetResults.find((result) => result.error)?.error;
-    if (targetError) {
-      throw targetError;
+    // Handle EXTRACT (Voice Queries)
+    if (extractItems.length > 0) {
+      let contextData = [];
+
+      for (const item of extractItems) {
+        if (item.category === 'storage_log') {
+          // THE FIX: Order by newest first, and strictly limit to 4 results
+          const { data } = await supabase
+            .from('whiteboard_items')
+            .select('item_name, description, created_at')
+            .eq('category', 'storage_log')
+            .ilike('item_name', `%${item.item_name}%`)
+            .order('created_at', { ascending: false })
+            .limit(4);
+
+          if (data) contextData.push(...data);
+        } else {
+          // General lists for other categories: Get all active items
+          const { data } = await supabase
+            .from('whiteboard_items')
+            .select('item_name, category')
+            .eq('category', item.category)
+            .eq('is_completed', false);
+
+          if (data) contextData.push(...data);
+        }
+      }
+
+      // Ask Gemini to format the targeted Supabase data naturally
+      const queryResponse = await generateWithRetry(
+        ai,
+        `Answer the household user's question briefly and naturally using only the context data below.
+         If the question is about where an item is stored, state the most recent location, and then optionally list up to 3 previous locations if they exist in the context data.
+         If the answer is not present, say that you could not find it on the whiteboard.
+
+        User question: ${body.rawInput}
+
+        Context data:
+        ${JSON.stringify(contextData)}`,
+      );
+
+      return NextResponse.json({
+        type: 'query',
+        answer: queryResponse.text?.trim() ?? '',
+      });
     }
 
-    return NextResponse.json({ type: 'mutation', items: extractedData.items });
+    // Handle ADD and REMOVE mutations
+    if (mutationItems.length > 0) {
+      const targetResults = await Promise.all(
+        mutationItems.map((item) =>
+          item.action === 'add'
+            ? supabase.from('whiteboard_items').insert({
+                item_name: item.item_name,
+                category: item.category,
+                description: item.location, // Maps the specific storage location to the description column
+              })
+            : supabase
+                .from('whiteboard_items')
+                .update({ is_completed: true })
+                .ilike('item_name', `%${item.item_name}%`)
+                .eq('category', item.category),
+        ),
+      );
+
+      const targetError = targetResults.find((result) => result.error)?.error;
+      if (targetError) {
+        throw targetError;
+      }
+    }
+
+    return NextResponse.json({ type: 'mutation', items: mutationItems });
   } catch (error) {
     console.error('Capture request failed:', error);
     return NextResponse.json(
