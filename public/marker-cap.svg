@@ -1,17 +1,15 @@
 <svg width="120" height="100" viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Outer Glow Filter for Pop Effect -->
   <defs>
     <filter id="cap-glow" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.15"/>
     </filter>
   </defs>
-
-  <!-- Blue Cap Body -->
-  <path d="M 20,95 L 20,40 C 20,20 38,8 60,8 C 82,8 100,20 100,40 L 100,95 Z" fill="#165DFC" filter="url(#cap-glow)"/>
+  <!-- Cap Body -->
+  <path d="M 20,95 L 20,30 C 20,10 38,5 60,5 C 82,5 100,10 100,30 L 100,95 Z" fill="#165DFC" filter="url(#cap-glow)"/>
   
   <!-- White Accent Stripe -->
-  <rect x="20" y="78" width="80" height="6" fill="#FFFFFF"/>
+  <rect x="20" y="75" width="80" height="8" fill="#FFFFFF"/>
   
   <!-- Lip Rim -->
-  <rect x="18" y="90" width="84" height="6" rx="2" fill="#0D47C6"/>
+  <rect x="18" y="90" width="84" height="8" rx="2" fill="#0D47C6"/>
 </svg>

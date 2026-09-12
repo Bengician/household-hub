@@ -5,13 +5,11 @@ import Image from "next/image";
 export default function SplashScreen({ onComplete }: { onComplete: () => void }) {
   const [isPopping, setIsPopping] = useState(false);
   const [isFading, setIsFading] = useState(false);
-  const hasPlayedAudio = useRef(false); // Tracks audio to prevent double-play
+  const hasPlayedAudio = useRef(false);
 
   useEffect(() => {
     const popTimer = setTimeout(() => {
       setIsPopping(true);
-      
-      // Play sound only once, bypassing Strict Mode double-fires
       if (!hasPlayedAudio.current) {
         hasPlayedAudio.current = true;
         const audio = new Audio("/pop.mp3");
@@ -40,25 +38,25 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
         isFading ? "animate-fade-out" : ""
       }`}
     >
-      <div className="relative flex flex-col items-center">
-        {/* Marker Cap - explicitly targeting .svg */}
-        <div className={`z-10 ${isPopping ? "animate-pop-cap" : ""}`}>
+      <div className="relative flex justify-center w-[120px] h-[340px]">
+        {/* Marker Body */}
+        <div className="absolute top-0 z-0">
           <Image
-            src="/marker-cap.svg" 
-            alt="Marker Cap"
-            width={80}
-            height={67}
+            src="/marker-body.svg"
+            alt="Marker Body"
+            width={120}
+            height={340}
             priority
           />
         </div>
         
-        {/* Marker Body - explicitly targeting .svg */}
-        <div className="z-0 -mt-2">
+        {/* Marker Cap (Absolute positioned to slide exactly over the tip) */}
+        <div className={`absolute top-0 z-10 ${isPopping ? "animate-pop-cap" : ""}`}>
           <Image
-            src="/marker-body.svg"
-            alt="Marker Body"
-            width={80}
-            height={146}
+            src="/marker-cap.svg" 
+            alt="Marker Cap"
+            width={120}
+            height={100}
             priority
           />
         </div>
