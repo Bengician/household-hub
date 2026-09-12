@@ -84,7 +84,7 @@ async function generateWithRetry(
   for (let attempt = 0; attempt < retryDelays.length; attempt += 1) {
     try {
       return await ai.models.generateContent({
-        model: 'gemini-3.5-flash-lite',
+        model: 'gemini-3.6-flash',
         contents,
         config,
       });
