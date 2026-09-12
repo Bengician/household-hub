@@ -61,7 +61,7 @@ const zones: { category: Category; label: string; tint: string }[] = [
   { category: "groceries", label: "Groceries", tint: "bg-amber-50/80" },
   {
     category: "hardware_home",
-    label: "Hardware & Home",
+    label: "Home & Tools",
     tint: "bg-sky-50/80",
   },
   { category: "storage_log", label: "Storage Log", tint: "bg-emerald-50/80" },
