@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import { supabase } from "../lib/supabase";
+import SplashScreen from "../components/SplashScreen";
 
 const caveat = Caveat({
   subsets: ["latin"],
@@ -67,6 +68,7 @@ const zones: { category: Category; label: string; tint: string }[] = [
 ];
 
 export default function Home() {
+  const [showSplash, setShowSplash] = useState(true);
   const [items, setItems] = useState<WhiteboardItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCapturing, setIsCapturing] = useState(false);
@@ -306,179 +308,183 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-[#d9d4cb] px-4 py-6 text-slate-800 sm:px-6 sm:py-8">
-      <div className="mx-auto flex h-[calc(100vh-3rem)] min-h-0 w-full max-w-md flex-col gap-5 sm:h-[calc(100vh-4rem)]">
-        <div className="relative min-h-0 flex-1 [perspective:1000px]">
-          <div
-            className={`relative h-full min-h-0 transition-transform duration-700 [transform-style:preserve-3d] ${isFlipped ? "rotate-y-180" : ""}`}
-          >
-            <section
-              className="absolute inset-0 overflow-hidden rounded-[2rem] border-[10px] border-[#b7b2a9] bg-slate-50 p-4 shadow-[0_22px_45px_rgba(55,50,42,0.3),inset_0_0_0_2px_rgba(255,255,255,0.9),inset_0_0_24px_rgba(148,163,184,0.16)] [backface-visibility:hidden] sm:p-5"
-              aria-label="Household whiteboard"
+    <>
+      {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
+      
+      <main className="min-h-screen bg-[#d9d4cb] px-4 py-6 text-slate-800 sm:px-6 sm:py-8">
+        <div className="mx-auto flex h-[calc(100vh-3rem)] min-h-0 w-full max-w-md flex-col gap-5 sm:h-[calc(100vh-4rem)]">
+          <div className="relative min-h-0 flex-1 [perspective:1000px]">
+            <div
+              className={`relative h-full min-h-0 transition-transform duration-700 [transform-style:preserve-3d] ${isFlipped ? "rotate-y-180" : ""}`}
             >
-              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.7),transparent_22%,transparent_78%,rgba(148,163,184,0.08))]" />
-              <div className="relative flex h-full min-h-0 flex-col">
-                <header className="mb-4 flex items-center justify-between gap-3 border-b-2 border-slate-200/80 pb-3">
-                  <h1 className={`${caveat.className} text-3xl font-bold leading-none text-slate-700 sm:text-4xl`}>
-                    Ben and Em&apos;s Whiteboard
-                  </h1>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <div
-                      className={`relative flex items-center shrink-0 group w-40 h-10 transition-all ${
-                        isCapturing
-                          ? "pointer-events-none opacity-60"
-                          : "cursor-pointer hover:scale-105"
-                      }`}
-                      role="button"
-                      tabIndex={isCapturing ? -1 : 0}
-                      aria-label={isListening ? "Stop voice input" : "Start voice input"}
-                      aria-disabled={isCapturing}
-                      onClick={toggleVoiceInput}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          toggleVoiceInput();
-                        }
-                      }}
-                    >
-                      {/* Glow */}
+              <section
+                className="absolute inset-0 overflow-hidden rounded-[2rem] border-[10px] border-[#b7b2a9] bg-slate-50 p-4 shadow-[0_22px_45px_rgba(55,50,42,0.3),inset_0_0_0_2px_rgba(255,255,255,0.9),inset_0_0_24px_rgba(148,163,184,0.16)] [backface-visibility:hidden] sm:p-5"
+                aria-label="Household whiteboard"
+              >
+                <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.7),transparent_22%,transparent_78%,rgba(148,163,184,0.08))]" />
+                <div className="relative flex h-full min-h-0 flex-col">
+                  <header className="mb-4 flex items-center justify-between gap-3 border-b-2 border-slate-200/80 pb-3">
+                    <h1 className={`${caveat.className} text-3xl font-bold leading-none text-slate-700 sm:text-4xl`}>
+                      Ben and Em&apos;s Whiteboard
+                    </h1>
+                    <div className="flex shrink-0 items-center gap-3">
                       <div
-                        className={`absolute inset-0 rounded-full transition-all duration-300 ${
-                          isListening
-                            ? "bg-amber-300 opacity-100 blur-xl scale-125 animate-pulse"
-                            : "bg-white opacity-0 group-hover:opacity-40 blur-lg"
+                        className={`relative flex items-center shrink-0 group w-40 h-10 transition-all ${
+                          isCapturing
+                            ? "pointer-events-none opacity-60"
+                            : "cursor-pointer hover:scale-105"
                         }`}
-                      />
-
-                      <div className="relative flex items-center w-full h-8 mt-1.5">
-
-                        {/* Static marker body — shadow belongs ONLY here */}
-                        <div className="relative flex items-center flex-1 h-8 drop-shadow-md">
-
-                          {/* Revealed tip */}
-                          <div className="flex items-center justify-end w-11 h-8">
-                            <div className="w-3 h-3 bg-blue-800 rounded-l-sm" />
-                            <div className="w-3 h-6 bg-slate-300 border-y border-slate-300" />
-                          </div>
-
-                          {/* Barrel */}
-                          <div className="relative z-10 flex items-center justify-center flex-1 h-8 bg-slate-50 border-y border-slate-300">
-                            {/* Accent stripe */}
-                            <div className="absolute left-1 w-1.5 h-full bg-blue-700" />
-
-                            {/* Microphone */}
-                            <svg
-                              className="w-3.5 h-3.5 text-slate-400 ml-2"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              viewBox="0 0 24 24"
-                              aria-hidden="true"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"
-                              />
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M19 10v1a7 7 0 01-14 0v-1M12 18.5V23M8 23h8"
-                              />
-                            </svg>
-                          </div>
-
-                          {/* End plug */}
-                          <div className="w-3 h-6 bg-blue-700 rounded-r-md" />
-                        </div>
-
-                        {/* Cap — completely independent from the shadow */}
+                        role="button"
+                        tabIndex={isCapturing ? -1 : 0}
+                        aria-label={isListening ? "Stop voice input" : "Start voice input"}
+                        aria-disabled={isCapturing}
+                        onClick={toggleVoiceInput}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            toggleVoiceInput();
+                          }
+                        }}
+                      >
+                        {/* Glow */}
                         <div
-                          className={`absolute left-0 z-30 origin-bottom-left transition-all duration-300 ease-out ${
+                          className={`absolute inset-0 rounded-full transition-all duration-300 ${
                             isListening
-                              ? "-translate-x-6 -translate-y-4 -rotate-45 opacity-0"
-                              : "translate-x-0 translate-y-0 rotate-0 opacity-100"
+                              ? "bg-amber-300 opacity-100 blur-xl scale-125 animate-pulse"
+                              : "bg-white opacity-0 group-hover:opacity-40 blur-lg"
                           }`}
-                        >
-                          <div className="w-11 h-8 bg-blue-700 rounded-l-md border-r border-slate-300" />
-                        </div>
+                        />
 
+                        <div className="relative flex items-center w-full h-8 mt-1.5">
+
+                          {/* Static marker body — shadow belongs ONLY here */}
+                          <div className="relative flex items-center flex-1 h-8 drop-shadow-md">
+
+                            {/* Revealed tip */}
+                            <div className="flex items-center justify-end w-11 h-8">
+                              <div className="w-3 h-3 bg-blue-800 rounded-l-sm" />
+                              <div className="w-3 h-6 bg-slate-300 border-y border-slate-300" />
+                            </div>
+
+                            {/* Barrel */}
+                            <div className="relative z-10 flex items-center justify-center flex-1 h-8 bg-slate-50 border-y border-slate-300">
+                              {/* Accent stripe */}
+                              <div className="absolute left-1 w-1.5 h-full bg-blue-700" />
+
+                              {/* Microphone */}
+                              <svg
+                                className="w-3.5 h-3.5 text-slate-400 ml-2"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"
+                                />
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M19 10v1a7 7 0 01-14 0v-1M12 18.5V23M8 23h8"
+                                />
+                              </svg>
+                            </div>
+
+                            {/* End plug */}
+                            <div className="w-3 h-6 bg-blue-700 rounded-r-md" />
+                          </div>
+
+                          {/* Cap — completely independent from the shadow */}
+                          <div
+                            className={`absolute left-0 z-30 origin-bottom-left transition-all duration-300 ease-out ${
+                              isListening
+                                ? "-translate-x-6 -translate-y-4 -rotate-45 opacity-0"
+                                : "translate-x-0 translate-y-0 rotate-0 opacity-100"
+                            }`}
+                          >
+                            <div className="w-11 h-8 bg-blue-700 rounded-l-md border-r border-slate-300" />
+                          </div>
+
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </header>
-              
-                {processingTranscript && isCapturing && (
-                  <div className="mb-3 flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-center shadow-sm">
-                    <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" aria-hidden="true" />
-                    <span className={`${caveat.className} truncate text-xl text-slate-600`}>
-                      {processingTranscript}
-                    </span>
-                  </div>
-                )}
+                  </header>
+                
+                  {processingTranscript && isCapturing && (
+                    <div className="mb-3 flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-center shadow-sm">
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" aria-hidden="true" />
+                      <span className={`${caveat.className} truncate text-xl text-slate-600`}>
+                        {processingTranscript}
+                      </span>
+                    </div>
+                  )}
 
-                {isLoading ? (
-                  <BoardPlaceholder />
-                ) : (
-                  <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-3">
-                    {zones.map((zone) => (
-                      <WhiteboardZone
-                        key={zone.category}
-                        zone={zone}
-                        items={items.filter((item) => item.category === zone.category)}
-                        headingClassName={caveat.className}
-                        onComplete={queueItemDeletion}
-                        pendingDeletions={pendingDeletions}
-                        newItemIds={newItemIds}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </section>
-
-            <section
-              className="absolute inset-0 flex min-h-0 flex-col overflow-hidden rounded-[2rem] border-[10px] border-[#777a78] bg-[#8b8e8b] p-6 text-slate-100 shadow-[inset_0_0_0_2px_rgba(255,255,255,0.18),inset_0_0_28px_rgba(31,41,55,0.22),0_22px_45px_rgba(55,50,42,0.3)] [backface-visibility:hidden] rotate-y-180"
-              aria-label="Whiteboard response"
-            >
-              <div className="pointer-events-none absolute inset-0 opacity-30 [background-image:radial-gradient(rgba(255,255,255,0.22)_0.7px,transparent_0.7px)] [background-size:5px_5px]" />
-              <div className="relative flex h-full flex-col">
-                <div className="flex items-center justify-between border-b border-white/20 pb-3">
-                  <p className={`${caveat.className} text-3xl font-bold text-white/90`}>House answer</p>
-                  <button
-                    type="button"
-                    onClick={() => setIsFlipped(false)}
-                    className="rounded-lg border border-white/30 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-white/80 transition hover:bg-white/10"
-                  >
-                    Back to board
-                  </button>
+                  {isLoading ? (
+                    <BoardPlaceholder />
+                  ) : (
+                    <div className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-3">
+                      {zones.map((zone) => (
+                        <WhiteboardZone
+                          key={zone.category}
+                          zone={zone}
+                          items={items.filter((item) => item.category === zone.category)}
+                          headingClassName={caveat.className}
+                          onComplete={queueItemDeletion}
+                          pendingDeletions={pendingDeletions}
+                          newItemIds={newItemIds}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <p className={`${caveat.className} mt-8 whitespace-pre-wrap text-3xl leading-tight text-white/95`}>
-                  {queryResponse}
-                </p>
-              </div>
-            </section>
+              </section>
+
+              <section
+                className="absolute inset-0 flex min-h-0 flex-col overflow-hidden rounded-[2rem] border-[10px] border-[#777a78] bg-[#8b8e8b] p-6 text-slate-100 shadow-[inset_0_0_0_2px_rgba(255,255,255,0.18),inset_0_0_28px_rgba(31,41,55,0.22),0_22px_45px_rgba(55,50,42,0.3)] [backface-visibility:hidden] rotate-y-180"
+                aria-label="Whiteboard response"
+              >
+                <div className="pointer-events-none absolute inset-0 opacity-30 [background-image:radial-gradient(rgba(255,255,255,0.22)_0.7px,transparent_0.7px)] [background-size:5px_5px]" />
+                <div className="relative flex h-full flex-col">
+                  <div className="flex items-center justify-between border-b border-white/20 pb-3">
+                    <p className={`${caveat.className} text-3xl font-bold text-white/90`}>House answer</p>
+                    <button
+                      type="button"
+                      onClick={() => setIsFlipped(false)}
+                      className="rounded-lg border border-white/30 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-white/80 transition hover:bg-white/10"
+                    >
+                      Back to board
+                    </button>
+                  </div>
+                  <p className={`${caveat.className} mt-8 whitespace-pre-wrap text-3xl leading-tight text-white/95`}>
+                    {queryResponse}
+                  </p>
+                </div>
+              </section>
+            </div>
           </div>
+          {errorMessage && (
+            <p className="text-center text-sm text-rose-700" role="alert">
+              {errorMessage}
+            </p>
+          )}
         </div>
-        {errorMessage && (
-          <p className="text-center text-sm text-rose-700" role="alert">
-            {errorMessage}
-          </p>
+        {pendingDeletions.size > 0 && (
+          <div className="fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-5 rounded-full bg-slate-900 px-5 py-3 text-sm text-white shadow-xl">
+            <span>Note crossed out</span>
+            <button
+              type="button"
+              onClick={undoLatestDeletion}
+              className="font-bold text-amber-300 transition hover:text-amber-200"
+            >
+              Undo
+            </button>
+          </div>
         )}
-      </div>
-      {pendingDeletions.size > 0 && (
-        <div className="fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-5 rounded-full bg-slate-900 px-5 py-3 text-sm text-white shadow-xl">
-          <span>Note crossed out</span>
-          <button
-            type="button"
-            onClick={undoLatestDeletion}
-            className="font-bold text-amber-300 transition hover:text-amber-200"
-          >
-            Undo
-          </button>
-        </div>
-      )}
-    </main>
+      </main>
+    </>
   );
 }
 
