@@ -167,13 +167,14 @@ export async function POST(request: Request) {
 
       for (const item of extractItems) {
         if (item.category === 'storage_log') {
-          // THE FIX: Order by newest first, and strictly limit to 4 results
+          // Sort active items first, then by most recent, strictly limited to 4
           const { data } = await supabase
             .from('whiteboard_items')
-            .select('item_name, description, created_at')
+            .select('item_name, description, created_at, is_completed')
             .eq('category', 'storage_log')
             .ilike('item_name', `%${item.item_name}%`)
-            .order('created_at', { ascending: false })
+            .order('is_completed', { ascending: true }) // Active items first
+            .order('created_at', { ascending: false })  // Most recent first
             .limit(4);
 
           if (data) contextData.push(...data);
